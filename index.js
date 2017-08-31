@@ -1,16 +1,40 @@
 'use strict';
 
-const DOMAIN = 'http://localhost:9000';
-const REALM = 'Concerto';
-const REPOS_PATH = '/Users/imjching/workspace/tempgrack/repo';
+/**
+ * Ensure that all environment variables are configured.
+ */
+
+var dotenv = require('dotenv');
+dotenv.config();
+
+[
+  'DOMAIN',
+  'PORT',
+  'REALM',
+  'REPOS_PATH'
+].forEach(varName => {
+  if (!process.env.hasOwnProperty(varName)) {
+    throw new Error('Missing environment variable: ' + varName);
+  }
+});
+
+/**
+ * Module dependencies.
+ */
+
+var spawn = require('child_process').spawn;
+var fs = require('fs');
+var http = require('http');
+var path = require('path');
+var zlib = require('zlib');
 
 var express = require('express');
 var gitHttp = require('git-http-backend');
 var helmet = require('helmet');
-var spawn = require('child_process').spawn;
-var path = require('path');
-var fs = require('fs');
-var zlib = require('zlib');
+
+/**
+ * Initialize express server.
+ */
 
 var app = express();
 app.use(helmet());
@@ -27,11 +51,11 @@ app.use(function(req, res, next) {
     res.status(status).send('\n' + arr.join('\n') + '\n');
   }
   next();
-})
+});
 
 // Basic Authentication
 var unauthorized = function (res) {
-  res.header('WWW-Authenticate', `Basic realm="${REALM}"`);
+  res.header('WWW-Authenticate', `Basic realm="${process.env.REALM}"`);
   res.reply(401, [
     'WARNING:',
     'Do not authenticate with username and password using git.',
@@ -94,7 +118,7 @@ var auth = function(req, res, next) {
 
 // Git Server handler
 var handleGit = function(req, res) {
-  var dir = path.join(REPOS_PATH, `${req.params[0]}.git`);
+  var dir = path.join(process.env.REPOS_PATH, `${req.params[0]}.git`);
 
   // Check if repo exists
   if (!fs.existsSync(dir)) {
@@ -107,6 +131,7 @@ var handleGit = function(req, res) {
 
   reqStream.pipe(gitHttp(req.url, function(err, service) {
     if (err) {
+      console.log('ERR', err);
       return res.status(500).send(http.STATUS_CODES['500']);
     }
 
@@ -134,6 +159,11 @@ app.get(/\/([a-z0-9\-]+)\.git\/info\/refs$/, auth, function(req, res) {
   handleGit(req, res);
 });
 
+app.use(/\/([a-z0-9\-]+)\.git\/info\/refs$/, function(req, res) {
+  res.header('Allow', 'HEAD, GET');
+  res.status(405).send('Method Not Allowed');
+});
+
 app.post(/\/([a-z0-9\-]+)\.git\/(git-(?:upload|receive)-pack)$/, auth, function(req, res) {
   handleGit(req, res);
 });
@@ -143,20 +173,34 @@ app.use(/\/([a-z0-9\-]+)\.git\/(git-(?:upload|receive)-pack)$/, function(req, re
   res.status(405).send('Method Not Allowed');
 });
 
-// not-found handler
+/**
+ * 404 handler.
+ */
+
 app.use(function(req, res, next) {
   res.reply(404, [
     'Invalid path.',
-    `Syntax is: ${DOMAIN}/<app>.git where <app> is your app\'s name.`
+    `Syntax is: ${process.env.DOMAIN}/<app>.git where <app> is your app\'s name.`
   ]);
 });
 
-// error handler
+/**
+ * Error handler.
+ */
+
 app.use(function(err, req, res, next) {
   err.status = err.status || 500;
+  console.log('ERR', err);
   res.status(err.status).send(http.STATUS_CODES[err.status]);
 });
 
-app.listen(9000, function() {
-  console.log('-----> Git HTTP(S) Server listening on port 9000');
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+var PORT = process.env.PORT || 9000;
+app.listen(PORT, function(error) {
+  error
+  ? console.error(error)
+  : console.log(`-----> Git HTTP(S) Server listening on port ${PORT}`);
 });
