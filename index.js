@@ -11,7 +11,7 @@ dotenv.config();
   'DOMAIN',
   'PORT',
   'REALM',
-  'REPOS_PATH'
+  'MAIN_PATH'
 ].forEach(varName => {
   if (!process.env.hasOwnProperty(varName)) {
     throw new Error('Missing environment variable: ' + varName);
@@ -118,7 +118,7 @@ var auth = function(req, res, next) {
 
 // Git Server handler
 var handleGit = function(req, res) {
-  var dir = path.join(process.env.REPOS_PATH, `${req.params[0]}.git`);
+  var dir = path.join(process.env.MAIN_PATH, req.params[0], 'git');
 
   // Check if repo exists
   if (!fs.existsSync(dir)) {
