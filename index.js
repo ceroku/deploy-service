@@ -202,5 +202,6 @@ var PORT = process.env.PORT || 9000;
 app.listen(PORT, function(error) {
   error
   ? console.error(error)
-  : console.log(`-----> Git HTTP(S) Server listening on port ${PORT}`);
+  : console.log(`Git HTTP(S) Server listening on port ${PORT}`);
+  console.log(`-----> Store URL: ${process.env.MAIN_PATH}`);
 });
